@@ -7,7 +7,6 @@
 #define MAX_OBSTACLES 1000000
 #define GAME_DURATION 360000000000000
 #define OBSTACLE_INTERVAL 90
-#define GRAVITY 0.004f
 
 typedef struct {
     float x, y, z;
@@ -16,11 +15,13 @@ typedef struct {
 
 float playerX = 0.0f;
 float playerY = 1.0f;
-float playerVelocityY = 0.0f;
 
 float cameraZ = 0.0f;
-
-int isJumping = 0;
+int isJumping = 0; // ジャンプ中かどうか
+float targetY = 2.5f; // ジャンプの最高点
+float hoverTime = 90.0f; // 滞空時間（フレーム単位）
+float hoverCounter = 0.0f; // 滞空時間をカウントする
+int jumpPhase = 0; // ジャンプのフェーズ (0: 上昇, 1: 対空, 2: 着地)
 
 Obstacle obstacles[MAX_OBSTACLES];
 int score = 0;
@@ -90,10 +91,9 @@ void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
 
-    // 俯瞰視点（斜め上から見下ろす視点）
-    gluLookAt(0.0f, 4.0f, cameraZ - 6.0f,  // 視点位置（高い位置から）
-              0.0f, 1.0f, cameraZ + 5.0f,  // 注視点（プレイヤー方向）
-              0.0f, 1.0f, 0.0f);           // 上方向
+    gluLookAt(0.0f, 4.0f, cameraZ - 6.0f,
+              0.0f, 1.0f, cameraZ + 5.0f,
+              0.0f, 1.0f, 0.0f);
 
     drawGround();
     drawPlayer();
@@ -146,15 +146,31 @@ void idle(void) {
     frameCount++;
     cameraZ += 0.03f;
 
-    // ジャンプ物理
+    // ジャンプの挙動
     if (isJumping) {
-        playerVelocityY -= GRAVITY;
-        playerY += playerVelocityY;
-
-        if (playerY <= 1.0f) {
-            playerY = 1.0f;
-            isJumping = 0;
-            playerVelocityY = 0.0f;
+        switch (jumpPhase) {
+            case 0: // 上昇フェーズ
+                playerY += 0.05f;
+                if (playerY >= targetY) {
+                    playerY = targetY;
+                    jumpPhase = 1; // 次のフェーズ: 対空
+                    hoverCounter = 0.0f;
+                }
+                break;
+            case 1: // 対空フェーズ
+                hoverCounter++;
+                if (hoverCounter >= hoverTime) {
+                    jumpPhase = 2; // 次のフェーズ: 着地
+                }
+                break;
+            case 2: // 着地フェーズ
+                playerY -= 0.05f;
+                if (playerY <= 1.0f) {
+                    playerY = 1.0f;
+                    isJumping = 0; // ジャンプ終了
+                    jumpPhase = 0;
+                }
+                break;
         }
     }
 
@@ -184,7 +200,7 @@ void specialKeys(int key, int x, int y) {
         case GLUT_KEY_UP:
             if (!isJumping) {
                 isJumping = 1;
-                playerVelocityY = 0.12f;  // 初速で上昇開始
+                jumpPhase = 0; // 上昇フェーズを開始
             }
             break;
     }
@@ -208,7 +224,7 @@ void init(void) {
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-    glutInitWindowSize(1280, 960);  // ウィンドウサイズを倍に
+    glutInitWindowSize(1280, 960);
     glutCreateWindow("Endless Runner Game");
 
     init();
