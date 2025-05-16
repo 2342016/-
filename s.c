@@ -4,7 +4,7 @@
 #include <math.h>
 #include <time.h>
 
-#define MAX_OBSTACLES 1000000
+#define MAX_OBSTACLES 5000000
 #define GAME_DURATION 360000000000000
 #define OBSTACLE_INTERVAL 90
 
